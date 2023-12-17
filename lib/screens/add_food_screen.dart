@@ -6,7 +6,7 @@ import 'package:accordion/accordion.dart';
 import 'package:myfilipinofoodapp/data/ingredientMetrics.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:myfilipinofoodapp/models/meal.dart';
+import 'package:myfilipinofoodapp/screens/layouts/home_screen.dart';
 
 class AddFoodScreen extends StatefulWidget {
   const AddFoodScreen({super.key});
@@ -20,6 +20,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   List<String> ingredientList = [];
   String instructionsList = "";
   bool isSuccessful = false;
+  bool isLoading = false;
   String imageUrl = "";
   XFile? _image;
   final storageRef = FirebaseStorage.instance.ref('images');
@@ -29,6 +30,13 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   final TextEditingController _dropdownController = TextEditingController();
   final TextEditingController _ingredientController = TextEditingController();
   final TextEditingController _instructionController = TextEditingController();
+
+  @override
+  void setState(fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
 
   Future<void> _getImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -42,53 +50,83 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   }
 
   Future<void> _uploadAndSubmit() async {
-    if (_formKey.currentState!.validate()) {
-      if (_image != null) {
-        try {
-          String filePath = _image!.path;
-          File file = File(filePath);
-          // Check if the file exists before attempting to upload
-          if (file.existsSync()) {
-            final storageRef =
-                FirebaseStorage.instance.ref('images/${_image!.name}');
-            await storageRef.putFile(file);
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      if (_formKey.currentState!.validate()) {
+        if (_image != null) {
+          try {
+            String filePath = _image!.path;
+            File file = File(filePath);
+            // Check if the file exists before attempting to upload
+            if (file.existsSync()) {
+              final storageRef =
+                  FirebaseStorage.instance.ref('images/${_image!.name}');
+              await storageRef.putFile(file);
 
-            String downloadURL = await storageRef.getDownloadURL();
+              String downloadURL = await storageRef.getDownloadURL();
 
-            setState(() {
-              imageUrl = downloadURL;
-            });
+              setState(() {
+                imageUrl = downloadURL;
+              });
+
+              // ignore: use_build_context_synchronously
+              ScaffoldMessenger.of(context).clearSnackBars();
+              // ignore: use_build_context_synchronously
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Successfully added your food.'),
+                ),
+              );
+            } else {
+              print('File does not exist: $filePath');
+            }
+          } catch (e) {
+            print('Error uploading image: $e');
+          }
+
+          try {
+            final newFavoriteMeal = <String, dynamic>{
+              "name": _dishNameController.text,
+              "ingredients": ingredientList,
+              "imgUrl": imageUrl,
+              "instructions": instructionsList
+            };
+
+            db
+                .collection("favoriteFood")
+                .add(newFavoriteMeal)
+                .then((DocumentReference doc) {});
 
             // ignore: use_build_context_synchronously
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Successfully added your food.'),
-              ),
-            );
-          } else {
-            print('File does not exist: $filePath');
+            Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const HomeScreen(),
+                ),
+                (route) => false);
+          } catch (e) {
+            print(e);
           }
-        } catch (e) {
-          print('Error uploading image: $e');
+        } else {
+          // ignore: use_build_context_synchronously
+          ScaffoldMessenger.of(context).clearSnackBars();
+          // ignore: use_build_context_synchronously
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose an image for your food.'),
+            ),
+          );
         }
       }
-
-      try {
-        final newFavoriteMeal = <String, dynamic>{
-          "name": _dishNameController.text,
-          "ingredients": ingredientList,
-          "imgUrl": imageUrl,
-          "instructions": instructionsList
-        };
-
-        db
-            .collection("favoriteFood")
-            .add(newFavoriteMeal)
-            .then((DocumentReference doc) => Navigator.pop(context));
-      } catch (e) {
-        print(e);
-      }
+    } catch (e) {
+      print(e);
     }
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -244,42 +282,46 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                         Flexible(
                           flex: 1,
                           // ADD INGREDIENT BUTTON
-                          child: IconButton(
-                            onPressed: () {
-                              var quantity = _quantityController.text;
-                              var metric = _dropdownController.text;
-                              var ingredient = _ingredientController.text;
-                              bool isSuccessful = false;
+                          child: isLoading
+                              ? const CircularProgressIndicator()
+                              : IconButton(
+                                  onPressed: () {
+                                    var quantity = _quantityController.text;
+                                    var metric = _dropdownController.text;
+                                    var ingredient = _ingredientController.text;
+                                    bool isSuccessful = false;
 
-                              if (quantity.isNotEmpty &&
-                                  ingredient.isNotEmpty) {
-                                setState(() {
-                                  ingredientList
-                                      .add('$quantity $metric $ingredient');
-                                });
-                                _quantityController.clear();
-                                _dropdownController.text = menuEntries[0].value;
-                                _ingredientController.clear();
-                                isSuccessful = true;
-                              }
-                              ScaffoldMessenger.of(context)
-                                  .removeCurrentSnackBar();
+                                    if (quantity.isNotEmpty &&
+                                        ingredient.isNotEmpty) {
+                                      setState(() {
+                                        ingredientList.add(
+                                            '$quantity $metric $ingredient');
+                                      });
+                                      _quantityController.clear();
+                                      _dropdownController.text =
+                                          menuEntries[0].value;
+                                      _ingredientController.clear();
+                                      isSuccessful = true;
+                                    }
+                                    ScaffoldMessenger.of(context)
+                                        .removeCurrentSnackBar();
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(isSuccessful
-                                      ? "Added Ingredient Successfully."
-                                      : "Please enter ingredient details."),
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(isSuccessful
+                                            ? "Added Ingredient Successfully."
+                                            : "Please enter ingredient details."),
+                                      ),
+                                    );
+
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+                                  },
+                                  icon: const Icon(
+                                    Icons.add_box_outlined,
+                                  ),
+                                  iconSize: 36,
                                 ),
-                              );
-
-                              FocusManager.instance.primaryFocus?.unfocus();
-                            },
-                            icon: const Icon(
-                              Icons.add_box_outlined,
-                            ),
-                            iconSize: 36,
-                          ),
                         ),
                       ],
                     ),
@@ -355,42 +397,46 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                         ),
                         Expanded(
                           // ADD INSTRUCTION
-                          child: IconButton(
-                            onPressed: () {
-                              if (_instructionController.text.isNotEmpty) {
-                                setState(() {
-                                  instructionsList +=
-                                      " ${_instructionController.text}";
-                                });
+                          child: isLoading
+                              ? const CircularProgressIndicator()
+                              : IconButton(
+                                  onPressed: () {
+                                    if (_instructionController
+                                        .text.isNotEmpty) {
+                                      setState(() {
+                                        instructionsList +=
+                                            " ${_instructionController.text}";
+                                      });
 
-                                setState(() {
-                                  isSuccessful = true;
-                                });
-                                _instructionController.clear();
-                              }
+                                      setState(() {
+                                        isSuccessful = true;
+                                      });
+                                      _instructionController.clear();
+                                    }
 
-                              ScaffoldMessenger.of(context)
-                                  .removeCurrentSnackBar();
+                                    ScaffoldMessenger.of(context)
+                                        .removeCurrentSnackBar();
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(isSuccessful
-                                      ? "Added Instruction Successfully."
-                                      : "Please enter instruction details."),
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(isSuccessful
+                                            ? "Added Instruction Successfully."
+                                            : "Please enter instruction details."),
+                                      ),
+                                    );
+
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+
+                                    setState(() {
+                                      isSuccessful = true;
+                                    });
+                                  },
+                                  icon: const Icon(
+                                    Icons.add_box_outlined,
+                                  ),
+                                  iconSize: 36,
                                 ),
-                              );
-
-                              FocusManager.instance.primaryFocus?.unfocus();
-
-                              setState(() {
-                                isSuccessful = true;
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.add_box_outlined,
-                            ),
-                            iconSize: 36,
-                          ),
                         ),
                       ],
                     ),
@@ -431,21 +477,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                       height: 2,
                     ),
                     // SUBMIT BUTTON
-                    ElevatedButton.icon(
-                      style: const ButtonStyle(
-                        minimumSize: MaterialStatePropertyAll(
-                          Size(
-                            300,
-                            50,
+                    isLoading
+                        ? const CircularProgressIndicator()
+                        : ElevatedButton.icon(
+                            style: const ButtonStyle(
+                              minimumSize: MaterialStatePropertyAll(
+                                Size(
+                                  300,
+                                  50,
+                                ),
+                              ),
+                            ),
+                            onPressed: _uploadAndSubmit,
+                            icon: const Icon(
+                              Icons.add_rounded,
+                            ),
+                            label: const Text('Submit'),
                           ),
-                        ),
-                      ),
-                      onPressed: _uploadAndSubmit,
-                      icon: const Icon(
-                        Icons.add_rounded,
-                      ),
-                      label: const Text('Submit'),
-                    ),
                     const SizedBox(
                       height: 24,
                     ),

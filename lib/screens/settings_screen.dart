@@ -38,35 +38,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(
-                height: 30,
-              ),
-              Text(
-                'Current Email: $userEmail',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+    return Scaffold(
+      body: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(
+                  height: 30,
                 ),
-              ),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () {
-                    logout(context);
-                  },
-                  icon: const Icon(
-                    Icons.logout,
+                Text(
+                  'Current Email: $userEmail',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
-                  label: const Text('Logout'),
                 ),
-              ),
-            ],
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      logout(context);
+                    },
+                    icon: const Icon(
+                      Icons.logout,
+                    ),
+                    label: const Text('Logout'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

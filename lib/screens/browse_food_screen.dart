@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:myfilipinofoodapp/models/generalMealInfo.dart';
-import 'package:myfilipinofoodapp/screens/add_food_screen.dart';
-import 'package:myfilipinofoodapp/screens/food_details_screen.dart';
+import 'package:myfilipinofoodapp/screens/details/food_details_screen.dart';
 
 class BrowseFoodScreen extends StatefulWidget {
   const BrowseFoodScreen({super.key});
@@ -17,6 +16,13 @@ class _BrowseFoodScreenState extends State<BrowseFoodScreen> {
   bool isLoading = false;
   bool isError = false;
   List<GeneralMealInfo> mealInfoList = [];
+
+  @override
+  void setState(fn) {
+    if (mounted) {
+      super.setState(fn);
+    }
+  }
 
   void getFilipinoFood() async {
     setState(() {
@@ -39,9 +45,6 @@ class _BrowseFoodScreenState extends State<BrowseFoodScreen> {
         setState(() {
           mealInfoList.add(generalMeal);
         });
-      }
-      for (var i = 0; i < mealInfoList.length; i++) {
-        print(mealInfoList[i]);
       }
     } else {
       setState(() {
